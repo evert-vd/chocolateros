@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alineación</title>
+  <!-- <link rel="stylesheet" href="styles.css"> -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tailwind no puede generar estas clases dinámicamente, se mantienen como custom */
+    body {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Player positioning */
+    .player {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translate(-50%, -50%);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+    }
+
+    .player.selected .p-icon {
+      filter: drop-shadow(0 0 4px #FFD700);
+    }
+
+    .player.dragging .p-icon {
+      transform: scale(1.2);
+    }
+
+    .p-icon {
+      transition: transform 0.1s;
+      width: 40px;
+      height: 44px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .p-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .pnum {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+      pointer-events: none;
+      line-height: 1;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-800 text-slate-800 font-sans text-xs h-dvh w-full place-items-center p-2">
+
+  <div class="flex flex-col max-w-3xl h-full border border-slate-600 rounded-xl overflow-hidden">
+
+    <div class="flex flex-row w-full bg-slate-700 justify-evenly border-b border-slate-600 px-1 py-1.5 gap-1">
+
+      <input class="bg-green-50 border-none rounded-md px-1 uppercase caret-green-600 font-semibold" id="teamName"
+        value="Mi Equipo" maxlength="30" placeholder="Nombre Equipo" />
+
+      <select id="count" class="bg-slate-800 text-white border border-slate-600 rounded-lg px-2 py-1">
+      </select>
+
+      <div id="icon" class="flex flex-nowrap border border-slate-600 rounded-lg overflow-hidden text-white">
+        <button id="btnCircle"
+          class="px-2 cursor-pointer whitespace-nowrap transition-colors duration-150 bg-green-600 font-semibold h-full py-1.5"
+          onclick="setShape('circle')">Círculo</button>
+        <button id="btnShirt" class="px-2 cursor-pointer whitespace-nowrap transition-colors duration-150 h-full py-1.5"
+          onclick="setShape('shirt')">Camiseta</button>
+      </div>
+
+
+      <div class="flex items-center justify-center gap-2">
+        <button onclick="downloadJpg()"
+          class="bg-green-600  rounded-lg cursor-pointer whitespace-nowrap transition-colors duration-150 text-green-50 h-full py-1.5 px-2 font-semibold">
+          &#8659; Descargar
+        </button>
+      </div>
+
+    </div>
+
+    <div class="flex sm:flex-row flex-col h-full w-full overflow-auto ">
+
+      <div class="flex flex-row w-full px-2">
+        <!-- Campo -->
+        <div class="relative py-4 center flex h-full place-content-center w-full" id="fieldWrap">
+          <svg id="field" class="w-full block rounded-lg" viewBox="0 0 340 520" xmlns="http://www.w3.org/2000/svg">
+            <rect width="340" height="520" fill="#1a4a2e" />
+            <g fill="none">
+              <g opacity="0.18">
+                <rect x="0" y="0" width="340" height="52" fill="#fff" />
+                <rect x="0" y="104" width="340" height="52" fill="#fff" />
+                <rect x="0" y="208" width="340" height="52" fill="#fff" />
+                <rect x="0" y="312" width="340" height="52" fill="#fff" />
+                <rect x="0" y="416" width="340" height="52" fill="#fff" />
+              </g>
+              <g stroke="#fff" stroke-width="1.5" opacity="0.7">
+                <rect x="14" y="14" width="312" height="492" rx="2" />
+                <line x1="14" y1="260" x2="326" y2="260" />
+                <circle cx="170" cy="260" r="46" />
+                <circle cx="170" cy="260" r="2.5" fill="#fff" />
+                <rect x="95" y="14" width="150" height="58" />
+                <rect x="125" y="14" width="90" height="28" />
+                <rect x="95" y="448" width="150" height="58" />
+                <rect x="125" y="478" width="90" height="28" />
+                <circle cx="170" cy="96" r="2.5" fill="#fff" />
+                <circle cx="170" cy="424" r="2.5" fill="#fff" />
+              </g>
+            </g>
+          </svg>
+          <div id="players"></div>
+        </div>
+      </div>
+
+
+
+      <div class="h-full flex flex-col w-96 p-2 border-l border-slate-600">
+
+        <!-- Color del equipo -->
+        <p class="text-[11px] text-[#666] text-center mb-1 uppercase">Color del equipo</p>
+        <div class="flex flex-wrap gap-[5px] justify-center mb-2.5" id="colorGrid"></div>
+
+
+        <!-- Panel de edición -->
+        <div id="editPanel" class=" bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 mt-2.5 max-w-[420px] mx-auto">
+          <h3 class="text-[14px] font-medium mb-2.5 text-[#eee]" id="editTitle">Editar jugador</h3>
+          <div class="flex gap-2 items-center mb-2">
+            <label class="text-xs text-[#999] w-[58px] shrink-0">Nombre</label>
+            <input type="text" id="editName" placeholder="Nombre" oninput="applyEdit()"
+              class="flex-1 bg-[#111] text-[#f1f1f1] border border-[#333] rounded-lg px-2 py-1 text-[14px] h-[34px]">
+          </div>
+          <div class="flex gap-2 items-center mb-2">
+            <label class="text-xs text-[#999] w-[58px] shrink-0">Número</label>
+            <input type="number" id="editNum" min="1" max="99" oninput="applyEdit()"
+              class="flex-1 bg-[#111] text-[#f1f1f1] border border-[#333] rounded-lg px-2 py-1 text-[14px] h-[34px]">
+          </div>
+        </div>
+
+        <p class="text-[11px] text-[#555] text-center mt-1.5 pb-0">
+          Toca un jugador para editarlo | Arrastra para mover
+        </p>
+
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+
+
+  <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.27/dist/interact.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    const VW = 340, VH = 520;
+    const formations = {
+      4: [[170, 490], [110, 340], [230, 340], [170, 180]],
+      5: [[170, 490], [80, 340], [170, 340], [260, 340], [170, 170]],
+      6: [[170, 490], [70, 360], [170, 360], [270, 360], [120, 200], [220, 200]],
+      7: [[170, 490], [70, 370], [170, 370], [270, 370], [120, 220], [220, 220], [170, 90]],
+      8: [[170, 490], [65, 380], [170, 380], [275, 380], [100, 250], [240, 250], [130, 120], [210, 120]],
+      9: [[170, 490], [60, 390], [170, 390], [280, 390], [90, 270], [250, 270], [90, 150], [170, 90], [250, 150]],
+      10: [[170, 490], [60, 400], [170, 400], [280, 400], [80, 280], [170, 260], [260, 280], [100, 150], [170, 90], [240, 150]],
+      11: [[170, 490], [55, 410], [140, 410], [230, 410], [310, 410], [90, 290], [170, 265], [250, 290], [110, 150], [170, 85], [230, 150]]
+    };
+    const defaultNames = ["Portero", "Defensa", "Defensa", "Defensa", "Defensa", "Mediocampista", "Mediocampista", "Mediocampista", "Delantero", "Delantero", "Delantero"];
+
+    const COLORS = [
+      { hex: '#e63946', name: 'Rojo' },
+      { hex: '#f4721e', name: 'Naranja' },
+      { hex: '#f7c325', name: 'Amarillo' },
+      // { hex: '#2ec4b6', name: 'Turquesa' },
+      { hex: '#1d7bc4', name: 'Azul' },
+      { hex: '#5c4fce', name: 'Morado' },
+      // { hex: '#d62b8f', name: 'Rosa' },
+      { hex: '#2dc653', name: 'Verde' },
+      // { hex: '#ffffff', name: 'Blanco' },
+      // { hex: '#888888', name: 'Gris' },
+      { hex: '#1a1a2e', name: 'Marino' },
+      // { hex: '#8B0000', name: 'Granate' },
+    ];
+
+    let players = [], color = COLORS[0].hex, shape = 'circle', selectedIdx = null;
+    const container = document.getElementById('players');
+
+    // Build color swatches
+    const grid = document.getElementById('colorGrid');
+    COLORS.forEach((c, i) => {
+      const sw = document.createElement('div');
+      sw.className = 'w-7 h-7 rounded-full border-2 cursor-pointer transition-transform duration-100 shrink-0'
+        + (i === 0 ? ' border-white scale-110' : ' border-transparent');
+      sw.style.background = c.hex;
+      sw.title = c.name;
+      sw.dataset.hex = c.hex;
+      sw.onclick = () => {
+        color = c.hex;
+        document.querySelectorAll('#colorGrid > div').forEach(s => {
+          s.classList.remove('border-white', 'scale-110');
+          s.classList.add('border-transparent');
+        });
+        sw.classList.remove('border-transparent');
+        sw.classList.add('border-white', 'scale-110');
+        updateAll();
+      };
+      grid.appendChild(sw);
+    });
+
+    // Build count select
+    const sel = document.getElementById('count');
+    for (let i = 4; i <= 11; i++) { const o = document.createElement('option'); o.value = i; o.textContent = i + (i === 11 ? ' (completo)' : ''); sel.appendChild(o); }
+    sel.value = 11;
+
+    function setShape(s) {
+      shape = s;
+      const btnC = document.getElementById('btnCircle');
+      const btnS = document.getElementById('btnShirt');
+      if (s === 'circle') {
+        btnC.classList.add('bg-green-600', 'font-semibold');
+        btnS.classList.remove('bg-green-600', 'font-semibold');
+      } else {
+        btnS.classList.add('bg-green-600', 'font-semibold');
+        btnC.classList.remove('bg-green-600', 'font-semibold');
+      }
+      updateAll();
+    }
+
+    function shirtSVG(c) {
+      return `<svg viewBox="0 0 40 44" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 2 L2 12 L9 15 L9 42 L31 42 L31 15 L38 12 L32 2 C29 5 25 7 20 7 C15 7 11 5 8 2Z" fill="${c}" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>
+  </svg>`;
+    }
+    function circleSVG(c) {
+      return `<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="18" fill="${c}" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+  </svg>`;
+    }
+
+    function svgToPixels(x, y) {
+      const r = document.getElementById('field').getBoundingClientRect();
+      return [x * (r.width / VW), y * (r.height / VH)];
+    }
+    function getScale() {
+      const r = document.getElementById('field').getBoundingClientRect();
+      return [VW / r.width, VH / r.height];
+    }
+    function clamp(x, y) { return [Math.max(25, Math.min(VW - 25, x)), Math.max(25, Math.min(VH - 25, y))]; }
+
+    function buildDOM(n) {
+      interact('.player').unset();
+      container.innerHTML = '';
+      players = formations[n].map((pos, i) => ({ name: defaultNames[i] || 'Jugador ' + (i + 1), num: i + 1, x: pos[0], y: pos[1] }));
+      selectedIdx = null;
+      //document.getElementById('editPanel').classList.add('hidden');
+      //document.getElementById('editPanel').classList.remove('block');
+      players.forEach((_, i) => {
+        const el = document.createElement('div');
+        el.className = 'player';
+        el.dataset.idx = i;
+        el.innerHTML = `<div class="p-icon"><div class="pnum"></div></div><div class="pname text-[10px] text-[#eee] [text-shadow:0_1px_3px_rgba(0,0,0,.9)] mt-0.5 max-w-[60px] text-center overflow-hidden text-ellipsis whitespace-nowrap pointer-events-none"></div>`;
+        container.appendChild(el);
+      });
+      setupInteract();
+      updateAll();
+    }
+
+    function updateAll() {
+      Array.from(container.children).forEach(el => {
+        const i = +el.dataset.idx, p = players[i];
+        const [px, py] = svgToPixels(p.x, p.y);
+        el.style.left = px + 'px';
+        el.style.top = py + 'px';
+        el.classList.toggle('selected', i === selectedIdx);
+        const icon = el.querySelector('.p-icon');
+        const existing = icon.querySelector('svg');
+        const svg = shape === 'shirt' ? shirtSVG(color) : circleSVG(color);
+        if (existing) existing.outerHTML = svg; else icon.insertAdjacentHTML('afterbegin', svg);
+        const pnum = el.querySelector('.pnum');
+        pnum.textContent = p.num;
+        if (shape === 'shirt') { pnum.style.top = '62%'; } else { pnum.style.top = '50%'; }
+        el.querySelector('.pname').textContent = p.name;
+      });
+    }
+
+    function toggleLock() {
+      const locked = document.getElementById('lockDrag').checked;
+      interact('.player').draggable(!locked);
+    }
+
+    function setupInteract() {
+      interact('.player').draggable({
+        inertia: false,
+        listeners: {
+          start(e) { e.target.classList.add('dragging'); },
+          move(e) {
+            const i = +e.target.dataset.idx;
+            const [sx, sy] = getScale();
+            const [nx, ny] = clamp(players[i].x + e.dx * sx, players[i].y + e.dy * sy);
+            players[i].x = nx; players[i].y = ny;
+            const [px, py] = svgToPixels(nx, ny);
+            e.target.style.left = px + 'px'; e.target.style.top = py + 'px';
+          },
+          end(e) { e.target.classList.remove('dragging'); }
+        }
+      }).on('tap', e => selectPlayer(+e.currentTarget.dataset.idx));
+    }
+
+    function selectPlayer(i) {
+      selectedIdx = i;
+      const p = players[i];
+      const panel = document.getElementById('editPanel');
+      /* panel.classList.remove('hidden');
+      panel.classList.add('block'); */
+      document.getElementById('editTitle').textContent = 'Jugador #' + p.num;
+      document.getElementById('editName').value = p.name;
+      document.getElementById('editNum').value = p.num;
+      updateAll();
+    }
+
+    function applyEdit() {
+      if (selectedIdx === null) return;
+      players[selectedIdx].name = document.getElementById('editName').value || '';
+      const n = parseInt(document.getElementById('editNum').value);
+      players[selectedIdx].num = isNaN(n) ? '' : n;
+      const el = container.querySelector(`[data-idx="${selectedIdx}"]`);
+      if (el) {
+        el.querySelector('.pnum').textContent = players[selectedIdx].num;
+        el.querySelector('.pname').textContent = players[selectedIdx].name;
+      }
+      document.getElementById('editTitle').textContent = 'Jugador #' + players[selectedIdx].num;
+    }
+
+    function downloadJpg() {
+      const btn = event.currentTarget;
+      btn.textContent = 'Generando...';
+      btn.disabled = true;
+      const wrap = document.getElementById('fieldWrap');
+      html2canvas(wrap, { backgroundColor: '#111', scale: 2, useCORS: true, allowTaint: true }).then(canvas => {
+        const a = document.createElement('a');
+        a.download = 'alineacion.jpg';
+        a.href = canvas.toDataURL('image/jpeg', 0.92);
+        a.click();
+        btn.textContent = '⬇ Descargar';
+        btn.disabled = false;
+      });
+    }
+
+
+
+    function buildColorGrid() {
+      const g = document.getElementById('colorGrid'); g.innerHTML = '';
+      PALETTE.forEach(c => {
+        const d = document.createElement('div');
+        d.className = 'cswatch' + (c === globalColor ? ' on' : '');
+        d.style.background = c; d.dataset.c = c;
+        d.addEventListener('pointerdown', e => { e.stopPropagation(); setGlobalColor(c); });
+        g.appendChild(d);
+      });
+    }
+
+
+    document.getElementById('field').addEventListener('click', () => {
+      selectedIdx = null;
+      const panel = document.getElementById('editPanel');
+      /*  panel.classList.add('hidden');
+       panel.classList.remove('block'); */
+      updateAll();
+    });
+    sel.addEventListener('change', e => buildDOM(+e.target.value));
+    window.addEventListener('resize', updateAll);
+
+    buildDOM(11);
+  </script>
+</body>
+
+</html>
